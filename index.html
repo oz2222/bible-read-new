@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>우리들의 행복한 말씀 동행 - BibleMate</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Babel Standalone for Browser JSX Compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Pretendard Font (Apple/Toss style modern sans-serif) -->
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+  
+  <!-- Gmarket Sans Font (Trendy, young geometric title font) -->
+  <link href="https://fonts.googleapis.com/css2?family=Gmarket+Sans:wght@500;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* 트렌디하고 세련된 폰트 세팅 */
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      letter-spacing: -0.03em;
+    }
+    
+    .font-title {
+      font-family: 'Gmarket Sans', 'Pretendard', sans-serif;
+    }
+
+    /* 부드럽고 가벼운 미니멀 스크롤바 */
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #FFFDFB;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #FFD5D0;
+      border-radius: 20px;
+    }
+
+    /* 버튼 터치 시 탱탱하게 튕기는 애니메이션 효과 */
+    .sticker-btn {
+      transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s ease, border-color 0.2s ease;
+    }
+    .sticker-btn:active {
+      transform: scale(0.92);
+    }
+  </style>
+</head>
+<body class="bg-[#FFFDFB]">
+
+  <!-- React Root Container -->
+  <div id="root"></div>
+
+  <!-- React & Firebase App Script (Babel + Module) -->
+  <script type="text/babel" data-type="module">
+    import React, { useState, useEffect } from 'https://esm.sh/react@18.2.0';
+    import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+    import { getFirestore, collection, doc, setDoc, onSnapshot, addDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+    // --- Firebase Configuration ---
+    const firebaseConfig = typeof __firebase_config !== 'undefined' 
+      ? JSON.parse(__firebase_config) 
+      : {
+          apiKey: "",
+          authDomain: "mock-project.firebaseapp.com",
+          projectId: "mock-project",
+          storageBucket: "mock-project.appspot.com",
+          messagingSenderId: "12345678",
+          appId: "1:1234:web:1234"
+        };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'bible-mate-shared-v2';
+
+    // 성경 목록 데이터
+    const BIBLE_BOOKS = [
+      { name: '창세기', type: '구약', chapters: 50 },
+      { name: '출애굽기', type: '구약', chapters: 40 },
+      { name: '레위기', type: '구약', chapters: 27 },
+      { name: '민수기', type: '구약', chapters: 36 },
+      { name: '신명기', type: '구약', chapters: 34 },
+      { name: '여호수아', type: '구약', chapters: 24 },
+      { name: '사사기', type: '구약', chapters: 21 },
+      { name: '룻기', type: '구약', chapters: 4 },
+      { name: '사무엘상', type: '구약', chapters: 31 },
+      { name: '사무엘하', type: '구약', chapters: 24 },
+      { name: '열왕기상', type: '구약', chapters: 22 },
+      { name: '열왕기하', type: '구약', chapters: 25 },
+      { name: '욥기', type: '구약', chapters: 42 },
+      { name: '시편', type: '구약', chapters: 150 },
+      { name: '잠언', type: '구약', chapters: 31 },
+      { name: '전도서', type: '구약', chapters: 12 },
+      { name: '이사야', type: '구약', chapters: 66 },
+      { name: '예레미야', type: '구약', chapters: 52 },
+      { name: '다니엘', type: '구약', chapters: 12 },
+      
+      { name: '마태복음', type: '신약', chapters: 28 },
+      { name: '마가복음', type: '신약', chapters: 16 },
+      { name: '누가복음', type: '신약', chapters: 24 },
+      { name: '요한복음', type: '신약', chapters: 21 },
+      { name: '사도행전', type: '신약', chapters: 28 },
+      { name: '로마서', type: '신약', chapters: 16 },
+      { name: '고린도전서', type: '신약', chapters: 16 },
+      { name: '고린도후서', type: '신약', chapters: 13 },
+      { name: '갈라디아서', type: '신약', chapters: 6 },
+      { name: '에베소서', type: '신약', chapters: 6 },
+      { name: '빌립보서', type: '신약', chapters: 4 },
+      { name: '골로새서', type: '신약', chapters: 4 },
+      { name: '데살로니가전서', type: '신약', chapters: 5 },
+      { name: '디모데전서', type: '신약', chapters: 6 },
+      { name: '히브리서', type: '신약', chapters: 13 },
+      { name: '야고보서', type: '신약', chapters: 5 },
+      { name: '베드로전서', type: '신약', chapters: 5 },
+      { name: '요한일서', type: '신약', chapters: 5 },
+      { name: '요한계시록', type: '신약', chapters: 22 }
+    ];
+
+    const DAILY_VERSES = [
+      { text: "너희는 먼저 그의 나라와 그의 의를 구하라 그리하면 이 모든 것을 너희에게 더하시리라", ref: "마태복음 6:33" },
+      { text: "내게 능력 주시는 자 안에서 내가 모든 것을 할 수 있느니라", ref: "빌립보서 4:13" },
+      { text: "주의 말씀은 내 발에 등이요 내 길에 빛이니이다", ref: "시편 119:105" },
+      { text: "여호와는 나의 목자시니 내게 부족함이 없으리로다", ref: "시편 23:1" },
+      { text: "우리가 알거니와 하나님을 사랑하는 자 곧 그의 뜻대로 부르심을 입은 자들에게는 모든 것이 합력하여 선을 이루느니라", ref: "로마서 8:28" },
+      { text: "두려워하지 말라 내가 너와 함께 함이라 놀라지 말라 나는 네 하나님이 됨이라", ref: "이사야 41:10" }
+    ];
+
+    // 화사하고 생기 넘치는 트렌디 팝 컬러 팔레트
+    const AVATAR_COLORS = [
+      { name: '러블리 피치', class: 'bg-[#FFE8E5] text-[#D35D50] border-[#FFD2CC]' },
+      { name: '민트 에이드', class: 'bg-[#E3F6F0] text-[#297C60] border-[#C3ECD9]' },
+      { name: '레몬 소르베', class: 'bg-[#FFFBE0] text-[#807212] border-[#F9F09D]' },
+      { name: '스카이 젤리', class: 'bg-[#E8F3FF] text-[#246FB5] border-[#CCE0FF]' },
+      { name: '블러썸 라일락', class: 'bg-[#F6ECFF] text-[#78439E] border-[#E8CEFF]' }
+    ];
+
+    // --- 수제형 완벽 매칭 SVG 아이콘 컴포넌트 ---
+    function Icon({ name, className = "w-4 h-4", fill = "none" }) {
+      const svgs = {
+        BookHeart: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+            <path d="M12 6H8v2h4V6z"/>
+            <path d="M11.5 13.5c-.8-.8-2-.8-2.8 0l-.7.7-.7-.7c-.8-.8-2-.8-2.8 0s-.8 2 0 2.8l3.5 3.5 3.5-3.5c.8-.8.8-2 0-2.8z"/>
+          </svg>
+        ),
+        BookOpen: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+          </svg>
+        ),
+        MessageCircleHeart: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+            <path d="M12 14.5c-.8-.8-2-.8-2.8 0l-.7.7-.7-.7c-.8-.8-2-.8-2.8 0s-.8 2 0 2.8l3.5 3.5 3.5-3.5c.8-.8.8-2 0-2.8z" transform="translate(4,-2.5) scale(0.8)"/>
+          </svg>
+        ),
+        CheckCircle2: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+            <path d="m9 12 2 2 4-4" />
+          </svg>
+        ),
+        User: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+        ),
+        Send: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m22 2-7 20-4-9-9-4Z" />
+            <path d="M22 2 11 13" />
+          </svg>
+        ),
+        ChevronRight: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+        ),
+        Flame: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+          </svg>
+        ),
+        Heart: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+          </svg>
+        ),
+        Plus: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12h14" />
+            <path d="M12 5v14" />
+          </svg>
+        ),
+        Settings: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        ),
+        Sparkles: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z" />
+          </svg>
+        ),
+        ChevronDown: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        ),
+        Trash2: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 6h18" />
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+          </svg>
+        ),
+        Users: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        ),
+        Share2: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <path d="m8.59 13.51 5.83 3.4" />
+            <path d="m14.41 7.1-5.83 3.4" />
+          </svg>
+        ),
+        Check: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+        ),
+        Edit2: (
+          <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+        )
+      };
+      return svgs[name] || null;
+    }
+
+    function App() {
+      // --- States ---
+      const [user, setUser] = useState(null);
+      const [currentUserProfile, setCurrentUserProfile] = useState(null);
+      const [isAuthLoading, setIsAuthLoading] = useState(true);
+      
+      const [groupId, setGroupId] = useState('');
+      const [groupName, setGroupName] = useState('우리 말씀 동행방 🌸');
+      const [isEditingGroupName, setIsEditingGroupName] = useState(false);
+      const [groupNameInput, setGroupNameInput] = useState('');
+
+      const [allUsers, setAllUsers] = useState([]);
+      const [allLogs, setAllLogs] = useState([]);
+      const [allShares, setAllShares] = useState([]);
+      const [allChecklists, setAllChecklists] = useState([]);
+      const [allGroupSettings, setAllGroupSettings] = useState([]);
+
+      const [activeTab, setActiveTab] = useState('tracker'); 
+      const [randomVerse, setRandomVerse] = useState(DAILY_VERSES[0]);
+      const [showToast, setShowToast] = useState(null);
+
+      const [nicknameInput, setNicknameInput] = useState('');
+      const [selectedColorIdx, setSelectedColorIdx] = useState(0);
+      const [showProfileModal, setShowProfileModal] = useState(false);
+
+      const [selectedBook, setSelectedBook] = useState('창세기');
+      const [shareToFeed, setShareToFeed] = useState(true);
+
+      const [newShareContent, setNewShareContent] = useState('');
+      const [newShareRef, setNewShareRef] = useState('');
+
+      const triggerToast = (msg) => {
+        setShowToast(msg);
+        setTimeout(() => {
+          setShowToast(null);
+        }, 3000);
+      };
+
+      // URL Hash 기반 공유방 ID 동기화
+      useEffect(() => {
+        const handleHashChange = () => {
+          const hash = window.location.hash;
+          let currentGroup = '';
+          if (hash && hash.startsWith('#group-')) {
+            currentGroup = hash.replace('#group-', '');
+          } else {
+            currentGroup = 'mate-' + Math.random().toString(36).substring(2, 8);
+            window.location.hash = '#group-' + currentGroup;
+          }
+          setGroupId(currentGroup);
+        };
+
+        handleHashChange();
+        window.addEventListener('hashchange', handleHashChange);
+        return () => window.removeEventListener('hashchange', handleHashChange);
+      }, []);
+
+      // 인증 리스너 (Rule 3)
+      useEffect(() => {
+        const initAuth = async () => {
+          try {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+              await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+              await signInAnonymously(auth);
+            }
+          } catch (error) {
+            console.error("Auth Error:", error);
+            triggerToast("네트워크 인증 오류");
+          } finally {
+            setIsAuthLoading(false);
+          }
+        };
+        initAuth();
+
+        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+          setUser(firebaseUser);
+        });
+
+        const randIdx = Math.floor(Math.random() * DAILY_VERSES.length);
+        setRandomVerse(DAILY_VERSES[randIdx]);
+
+        return () => unsubscribe();
+      }, []);
+
+      // 실시간 바인딩 (Rule 1 & Rule 2)
+      useEffect(() => {
+        if (!user || !groupId) return;
+
+        const unsubscribeUsers = onSnapshot(
+          collection(db, 'artifacts', appId, 'public', 'data', 'users'),
+          (snapshot) => {
+            const list = [];
+            snapshot.forEach((doc) => {
+              list.push({ id: doc.id, ...doc.data() });
+            });
+            setAllUsers(list);
+
+            const myProfileKey = `${user.uid}_${groupId}`;
+            const myProfile = list.find(u => u.id === myProfileKey);
+            if (myProfile) {
+              setCurrentUserProfile(myProfile);
+              setNicknameInput(myProfile.nickname || '');
+              setSelectedColorIdx(myProfile.avatarColorIdx || 0);
+            } else {
+              setShowProfileModal(true);
+            }
+          }
+        );
+
+        const unsubscribeLogs = onSnapshot(
+          collection(db, 'artifacts', appId, 'public', 'data', 'readingLogs'),
+          (snapshot) => {
+            const list = [];
+            snapshot.forEach((doc) => {
+              list.push({ id: doc.id, ...doc.data() });
+            });
+            setAllLogs(list);
+          }
+        );
+
+        const unsubscribeShares = onSnapshot(
+          collection(db, 'artifacts', appId, 'public', 'data', 'shares'),
+          (snapshot) => {
+            const list = [];
+            snapshot.forEach((doc) => {
+              list.push({ id: doc.id, ...doc.data() });
+            });
+            setAllShares(list);
+          }
+        );
+
+        const unsubscribeChecklists = onSnapshot(
+          collection(db, 'artifacts', appId, 'public', 'data', 'checklists'),
+          (snapshot) => {
+            const list = [];
+            snapshot.forEach((doc) => {
+              list.push({ id: doc.id, ...doc.data() });
+            });
+            setAllChecklists(list);
+          }
+        );
+
+        const unsubscribeGroupSettings = onSnapshot(
+          collection(db, 'artifacts', appId, 'public', 'data', 'groupSettings'),
+          (snapshot) => {
+            const list = [];
+            snapshot.forEach((doc) => {
+              list.push({ id: doc.id, ...doc.data() });
+            });
+            setAllGroupSettings(list);
+
+            const currentSetting = list.find(g => g.id === groupId);
+            if (currentSetting) {
+              setGroupName(currentSetting.groupName);
+              setGroupNameInput(currentSetting.groupName);
+            } else {
+              setGroupName('우리 말씀 동행방 🌸');
+              setGroupNameInput('우리 말씀 동행방 🌸');
+            }
+          }
+        );
+
+        return () => {
+          unsubscribeUsers();
+          unsubscribeLogs();
+          unsubscribeShares();
+          unsubscribeChecklists();
+          unsubscribeGroupSettings();
+        };
+      }, [user, groupId]);
+
+      const handleCopyInviteLink = () => {
+        const inviteUrl = `${window.location.origin}${window.location.pathname}#group-${groupId}`;
+        const textArea = document.createElement("textarea");
+        textArea.value = inviteUrl;
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          document.execCommand('copy');
+          triggerToast("초대 링크가 복사되었습니다! 친구에게 보내어 함께해요 📬");
+        } catch (err) {
+          triggerToast("주소창 복사를 이용해 주세요.");
+        }
+        document.body.removeChild(textArea);
+      };
+
+      const handleSaveGroupName = async () => {
+        if (!groupId) return;
+        const trimmed = groupNameInput.trim();
+        if (!trimmed) return;
+
+        try {
+          const groupRef = doc(db, 'artifacts', appId, 'public', 'data', 'groupSettings', groupId);
+          await setDoc(groupRef, {
+            groupName: trimmed,
+            updatedAt: Date.now()
+          }, { merge: true });
+          setIsEditingGroupName(false);
+          triggerToast(`방 이름이 예쁘게 변경되었습니다! 🌟`);
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      const handleSaveProfile = async () => {
+        if (!user || !groupId) return;
+        const trimmed = nicknameInput.trim();
+        if (!trimmed) {
+          triggerToast("이름을 정해 주세요!");
+          return;
+        }
+
+        try {
+          const userKey = `${user.uid}_${groupId}`;
+          const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', userKey);
+          await setDoc(userRef, {
+            nickname: trimmed,
+            avatarColorIdx: selectedColorIdx,
+            groupId: groupId,
+            userId: user.uid,
+            updatedAt: Date.now()
+          }, { merge: true });
+
+          const checklistRef = doc(db, 'artifacts', appId, 'public', 'data', 'checklists', `${user.uid}_${groupId}`);
+          await setDoc(checklistRef, {
+            userId: user.uid,
+            groupId: groupId,
+            userName: trimmed,
+            avatarColorIdx: selectedColorIdx
+          }, { merge: true });
+
+          setShowProfileModal(false);
+          triggerToast(`환영합니다, ${trimmed}님! 함께 걸어보아요 ✨`);
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      const handleToggleChapter = async (bookName, chapterNum) => {
+        if (!user || !currentUserProfile) {
+          setShowProfileModal(true);
+          return;
+        }
+
+        const checklistKey = `${user.uid}_${groupId}`;
+        const myChecklistDoc = allChecklists.find(chk => chk.id === checklistKey);
+        const currentChapters = myChecklistDoc?.chapters || {};
+        const bookChapters = currentChapters[bookName] || [];
+        
+        let updatedChapters = [];
+        let isCheckedOn = false;
+
+        if (bookChapters.includes(chapterNum)) {
+          updatedChapters = bookChapters.filter(c => c !== chapterNum);
+          isCheckedOn = false;
+        } else {
+          updatedChapters = [...bookChapters, chapterNum];
+          isCheckedOn = true;
+        }
+
+        const newChapters = { ...currentChapters, [bookName]: updatedChapters };
+
+        try {
+          const checklistRef = doc(db, 'artifacts', appId, 'public', 'data', 'checklists', checklistKey);
+          await setDoc(checklistRef, {
+            userId: user.uid,
+            groupId: groupId,
+            userName: currentUserProfile.nickname,
+            avatarColorIdx: currentUserProfile.avatarColorIdx || 0,
+            chapters: newChapters,
+            updatedAt: Date.now()
+          }, { merge: true });
+
+          if (isCheckedOn) {
+            const logRef = collection(db, 'artifacts', appId, 'public', 'data', 'readingLogs');
+            await addDoc(logRef, {
+              userId: user.uid,
+              userName: currentUserProfile.nickname,
+              avatarColorIdx: currentUserProfile.avatarColorIdx || 0,
+              book: bookName,
+              chapter: chapterNum,
+              groupId: groupId,
+              timestamp: Date.now()
+            });
+
+            if (shareToFeed) {
+              const shareRef = collection(db, 'artifacts', appId, 'public', 'data', 'shares');
+              await addDoc(shareRef, {
+                userId: user.uid,
+                userName: currentUserProfile.nickname,
+                avatarColorIdx: currentUserProfile.avatarColorIdx || 0,
+                content: `🌸 ${currentUserProfile.nickname}님이 ${bookName} ${chapterNum}장을 읽었습니다!`,
+                reference: `${bookName} ${chapterNum}장`,
+                groupId: groupId,
+                timestamp: Date.now(),
+                likes: []
+              });
+            }
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      const handleSetAllChapters = async (bookName, totalChapters, value) => {
+        if (!user || !currentUserProfile) {
+          setShowProfileModal(true);
+          return;
+        }
+        const checklistKey = `${user.uid}_${groupId}`;
+        const myChecklistDoc = allChecklists.find(chk => chk.id === checklistKey);
+        const currentChapters = myChecklistDoc?.chapters || {};
+
+        let updatedChapters = [];
+        if (value) {
+          updatedChapters = Array.from({ length: totalChapters }, (_, i) => i + 1);
+        }
+
+        const newChapters = { ...currentChapters, [bookName]: updatedChapters };
+
+        try {
+          const checklistRef = doc(db, 'artifacts', appId, 'public', 'data', 'checklists', checklistKey);
+          await setDoc(checklistRef, {
+            userId: user.uid,
+            groupId: groupId,
+            userName: currentUserProfile.nickname,
+            avatarColorIdx: currentUserProfile.avatarColorIdx || 0,
+            chapters: newChapters,
+            updatedAt: Date.now()
+          }, { merge: true });
+
+          const logRef = collection(db, 'artifacts', appId, 'public', 'data', 'readingLogs');
+          await addDoc(logRef, {
+            userId: user.uid,
+            userName: currentUserProfile.nickname,
+            avatarColorIdx: currentUserProfile.avatarColorIdx || 0,
+            book: bookName,
+            chapter: value ? `1~${totalChapters}` : '초기화',
+            groupId: groupId,
+            timestamp: Date.now()
+          });
+
+          triggerToast(value ? `🎉 ${bookName} 전부 읽음 처리 완료!` : `✨ ${bookName} 비우기 완료.`);
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      const handlePostShare = async (e) => {
+        e.preventDefault();
+        if (!user || !currentUserProfile) {
+          triggerToast("프로필을 완료해 주세요.");
+          return;
+        }
+
+        if (!newShareContent.trim()) {
+          triggerToast("나눌 내용을 작성해 주세요.");
+          return;
+        }
+
+        try {
+          const shareRef = collection(db, 'artifacts', appId, 'public', 'data', 'shares');
+          await addDoc(shareRef, {
+            userId: user.uid,
+            userName: currentUserProfile.nickname,
+            avatarColorIdx: currentUserProfile.avatarColorIdx || 0,
+            content: newShareContent,
+            reference: newShareRef.trim() || null,
+            groupId: groupId,
+            timestamp: Date.now(),
+            likes: []
+          });
+
+          setNewShareContent('');
+          setNewShareRef('');
+          triggerToast("묵상이 등록되었습니다! 💌");
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      const handleDeleteShare = async (shareId) => {
+        try {
+          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shares', shareId));
+          triggerToast("나눔을 정돈했습니다.");
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      const handleToggleLike = async (shareId, currentLikes = []) => {
+        if (!user) return;
+        const shareDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'shares', shareId);
+        
+        try {
+          if (currentLikes.includes(user.uid)) {
+            await updateDoc(shareDocRef, { likes: arrayRemove(user.uid) });
+          } else {
+            await updateDoc(shareDocRef, { likes: arrayUnion(user.uid) });
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      // 실시간 데이터 가공 (In-Memory Filtering)
+      const activeUsers = allUsers.filter(u => u.groupId === groupId);
+      const activeLogs = allLogs.filter(log => log.groupId === groupId);
+      const activeShares = allShares.filter(share => share.groupId === groupId);
+      const activeChecklists = allChecklists.filter(chk => chk.groupId === groupId);
+
+      const sortedShares = [...activeShares].sort((a, b) => b.timestamp - a.timestamp);
+      const sortedLogs = [...activeLogs].sort((a, b) => b.timestamp - a.timestamp);
+
+      const myChecklistData = user ? activeChecklists.find(chk => chk.userId === user.uid) : null;
+      const myReadMap = myChecklistData?.chapters || {};
+
+      const friendsProgress = activeUsers.map(u => {
+        const friendChecklist = activeChecklists.find(chk => chk.userId === u.userId);
+        const chaptersMap = friendChecklist?.chapters || {};
+        
+        let totalChapters = 0;
+        Object.keys(chaptersMap).forEach(book => {
+          totalChapters += (chaptersMap[book] || []).length;
+        });
+
+        const userLogs = activeLogs.filter(log => log.userId === u.userId);
+        const lastLog = userLogs.length > 0
+          ? [...userLogs].sort((a, b) => b.timestamp - a.timestamp)[0]
+          : null;
+
+        return {
+          ...u,
+          totalChapters,
+          lastLog
+        };
+      }).sort((a, b) => b.totalChapters - a.totalChapters);
+
+      const groupTotalChapters = friendsProgress.reduce((sum, friend) => sum + (friend.totalChapters || 0), 0);
+      const readingGoal = 1189; 
+      const progressPercent = Math.min(Math.round((groupTotalChapters / readingGoal) * 100), 100);
+
+      const currentBookObj = BIBLE_BOOKS.find(b => b.name === selectedBook) || BIBLE_BOOKS[0];
+      const totalChaptersOfSelected = currentBookObj.chapters;
+      const myReadInSelectedBook = myReadMap[selectedBook] || [];
+
+      const handleRefreshVerse = () => {
+        const currentIdx = DAILY_VERSES.findIndex(v => v.text === randomVerse.text);
+        let nextIdx = Math.floor(Math.random() * DAILY_VERSES.length);
+        while (nextIdx === currentIdx && DAILY_VERSES.length > 1) {
+          nextIdx = Math.floor(Math.random() * DAILY_VERSES.length);
+        }
+        setRandomVerse(DAILY_VERSES[nextIdx]);
+      };
+
+      if (isAuthLoading) {
+        return (
+          <div className="min-h-screen bg-[#FFFDFB] flex flex-col items-center justify-center p-6 text-center">
+            <div className="bg-[#FFE8E5] text-[#D35D50] p-4 rounded-3xl animate-bounce mb-3 shadow-sm shadow-rose-100">
+              <Icon name="BookHeart" className="w-8 h-8" />
+            </div>
+            <h2 className="text-sm font-bold text-slate-800 tracking-tight font-title">동행하는 중...</h2>
+            <p className="text-[11px] text-rose-400 font-semibold mt-1">실시간 말씀 동행방에 곧 입장합니다.</p>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen bg-[#FFFDFB] text-slate-800 font-sans antialiased flex flex-col max-w-lg mx-auto shadow-2xl relative border-x border-rose-100/30">
+          
+          {/* --- Top App Header --- */}
+          <header className="bg-white/95 backdrop-blur-md border-b border-rose-100/60 px-6 py-4 sticky top-0 z-20 space-y-3 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="bg-[#E88B88] text-white p-2.5 rounded-2xl shadow-sm shadow-rose-200">
+                  <Icon name="BookHeart" className="w-4 h-4 animate-pulse" />
+                </div>
+                <div>
+                  {isEditingGroupName ? (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <input
+                        type="text"
+                        value={groupNameInput}
+                        onChange={(e) => setGroupNameInput(e.target.value)}
+                        className="border border-rose-200 rounded-xl px-2.5 py-1 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#E88B88]"
+                        maxLength={20}
+                      />
+                      <button 
+                        onClick={handleSaveGroupName} 
+                        className="bg-[#E88B88] hover:bg-[#D47976] text-white px-2.5 py-1 rounded-lg text-[10px] font-bold"
+                      >
+                        완료
+                      </button>
+                    </div>
+                  ) : (
+                    <h1 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-1.5 font-title">
+                      {groupName}
+                      <button onClick={() => setIsEditingGroupName(true)} className="text-[#E88B88] hover:text-[#D47976] transition p-0.5 rounded-lg hover:bg-rose-50">
+                        <Icon name="Edit2" className="w-3 h-3" />
+                      </button>
+                    </h1>
+                  )}
+                  <p className="text-[10px] text-rose-400 font-mono tracking-wider mt-0.5">ROOM: {groupId}</p>
+                </div>
+              </div>
+
+              <div>
+                <button
+                  onClick={handleCopyInviteLink}
+                  className="flex items-center gap-1.5 bg-[#FFF0EF] text-[#D35D50] hover:bg-[#FFE0DD] border border-[#FFCCD4] py-1.5 px-3.5 rounded-full text-xs font-semibold transition shadow-none font-title"
+                >
+                  <Icon name="Share2" className="w-3 h-3" />
+                  <span>동행 초대</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 내 정보 위젯 */}
+            <div className="flex items-center justify-between bg-[#FCF8F5] border border-rose-100/50 rounded-2xl px-4 py-2.5 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                </span>
+                <span className="text-slate-500 font-medium font-title">동행 멤버 <span className="text-slate-800 font-bold">{activeUsers.length}명</span></span>
+              </div>
+
+              {currentUserProfile ? (
+                <button 
+                  onClick={() => {
+                    setNicknameInput(currentUserProfile.nickname);
+                    setSelectedColorIdx(currentUserProfile.avatarColorIdx || 0);
+                    setShowProfileModal(true);
+                  }}
+                  className="flex items-center gap-1.5 text-slate-700 hover:text-slate-900 font-medium"
+                >
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border ${AVATAR_COLORS[currentUserProfile.avatarColorIdx || 0].class}`}>
+                    {currentUserProfile.nickname ? currentUserProfile.nickname[0] : '나'}
+                  </div>
+                  <span className="font-semibold">{currentUserProfile.nickname}</span>
+                  <Icon name="Settings" className="w-3 h-3 text-rose-300" />
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setShowProfileModal(true)}
+                  className="text-[10px] text-[#D35D50] font-bold hover:underline"
+                >
+                  이름 정하기 ✏️
+                </button>
+              )}
+            </div>
+          </header>
+
+          {/* --- Main Content --- */}
+          <main className="flex-1 p-5 pb-24 space-y-6 overflow-y-auto">
+
+            {/* 오늘의 말씀 */}
+            <div className="bg-gradient-to-tr from-[#FFF2F0] to-[#FFF9F5] rounded-3xl p-5 border border-rose-100/60 relative overflow-hidden">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-[10px] font-black text-[#D35D50] tracking-widest uppercase flex items-center gap-1 font-title">
+                  <Icon name="Sparkles" className="w-3 h-3 text-[#E88B88]" /> 오늘의 말씀 묵상
+                </span>
+                <button 
+                  onClick={handleRefreshVerse}
+                  className="text-[9px] text-[#D35D50] bg-white hover:bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full transition font-title"
+                >
+                  새 말씀 ↻
+                </button>
+              </div>
+              <p className="text-slate-800 font-medium text-xs leading-relaxed mb-2.5 tracking-tight">
+                "{randomVerse.text}"
+              </p>
+              <p className="text-[10px] font-bold text-[#E88B88] text-right font-title">
+                — {randomVerse.ref}
+              </p>
+            </div>
+
+            {/* 완독 게이지 */}
+            <div className="bg-white rounded-3xl p-5 border border-rose-50/50 shadow-sm space-y-3">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-[10px] font-bold text-rose-400 tracking-widest font-title">BIBLE TRAIL PROGRESS</h3>
+                  <p className="text-xs text-slate-600 mt-0.5">우리들의 말씀 진도가 <span className="text-[#D35D50] font-extrabold">{groupTotalChapters}장</span>에 도달했습니다!</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm font-black text-[#D35D50] font-title">{progressPercent}%</span>
+                  <span className="text-[9px] text-slate-400 block font-bold">목표 1189장</span>
+                </div>
+              </div>
+              <div className="w-full bg-rose-50 rounded-full h-2.5 overflow-hidden border border-rose-100/20">
+                <div 
+                  className="bg-gradient-to-r from-rose-300 to-[#E88B88] h-full rounded-full transition-all duration-1000 ease-out" 
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+
+            {/* 탭 선택바 */}
+            <div className="flex bg-[#FFF5F2] p-1.5 rounded-2xl border border-rose-100/30">
+              <button
+                onClick={() => setActiveTab('tracker')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-xl transition font-title ${
+                  activeTab === 'tracker' 
+                    ? 'bg-white text-[#D35D50] shadow-sm font-black' 
+                    : 'text-slate-400 hover:text-slate-700'
+                }`}
+              >
+                <Icon name="CheckCircle2" className="w-3 h-3" />
+                스티커 체크
+              </button>
+              <button
+                onClick={() => setActiveTab('shares')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-xl transition font-title ${
+                  activeTab === 'shares' 
+                    ? 'bg-white text-[#D35D50] shadow-sm font-black' 
+                    : 'text-slate-400 hover:text-slate-700'
+                }`}
+              >
+                <Icon name="MessageCircleHeart" className="w-3 h-3" />
+                은혜 나눔
+              </button>
+              <button
+                onClick={() => setActiveTab('friends')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-xl transition font-title ${
+                  activeTab === 'friends' 
+                    ? 'bg-white text-[#D35D50] shadow-sm font-black' 
+                    : 'text-slate-400 hover:text-slate-700'
+                }`}
+              >
+                <Icon name="Users" className="w-3 h-3" />
+                동역자들
+              </button>
+            </div>
+
+            {/* --- TAB 1: 스티커 체크보드 --- */}
+            {activeTab === 'tracker' && (
+              <div className="space-y-5">
+                
+                <div className="bg-white rounded-3xl p-5 border border-rose-100/30 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between gap-3 pb-3 border-b border-rose-50">
+                    <div className="flex items-center gap-1.5">
+                      <Icon name="BookOpen" className="text-[#E88B88] w-4 h-4" />
+                      <span className="text-xs font-bold text-slate-800 font-title">성경 탐색</span>
+                    </div>
+                    
+                    <div className="relative">
+                      <select
+                        value={selectedBook}
+                        onChange={(e) => setSelectedBook(e.target.value)}
+                        className="bg-[#FFFDFB] border border-rose-100/80 rounded-xl pl-3 pr-8 py-1.5 text-xs font-bold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-[#E88B88]"
+                      >
+                        {BIBLE_BOOKS.map((b) => (
+                          <option key={b.name} value={b.name}>
+                            [{b.type}] {b.name} ({b.chapters}장)
+                          </option>
+                        ))}
+                      </select>
+                      <div className="absolute inset-y-0 right-2.5 flex items-center pointer-events-none text-rose-400">
+                        <Icon name="ChevronDown" className="w-3 h-3" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 일괄 완료 및 초기화 */}
+                  <div className="flex items-center justify-between text-[11px] bg-[#FFFBF9] p-3 rounded-2xl border border-rose-100/30">
+                    <div>
+                      <span className="font-extrabold text-[#D35D50] font-title">{selectedBook} </span>
+                      <span className="text-slate-400 font-medium">나의 동독:</span>{' '}
+                      <span className="font-bold text-slate-800">{myReadInSelectedBook.length} / {totalChaptersOfSelected}장</span>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleSetAllChapters(selectedBook, totalChaptersOfSelected, true)}
+                        className="bg-[#FFE8E5] text-[#D35D50] hover:bg-[#FFD2CC] font-bold px-2.5 py-1 rounded-lg transition text-[10px] font-title"
+                      >
+                        전부완료
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSetAllChapters(selectedBook, totalChaptersOfSelected, false)}
+                        className="bg-slate-100 text-slate-400 hover:bg-slate-200 font-bold px-2.5 py-1 rounded-lg transition text-[10px] font-title"
+                      >
+                        비우기
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 피드 옵션 */}
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 px-1 font-medium">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={shareToFeed}
+                        onChange={(e) => setShareToFeed(e.target.checked)}
+                        className="rounded text-[#E88B88] focus:ring-[#E88B88] w-3.5 h-3.5"
+                      />
+                      <span className="font-semibold text-slate-500">체크할 때마다 은혜나눔에도 소식 알리기</span>
+                    </label>
+                  </div>
+
+                  {/* 격자형 스티커 체크보드 */}
+                  <div className="bg-[#FCF8F5] p-3.5 rounded-2xl border border-rose-100/30">
+                    <div className="grid grid-cols-7 sm:grid-cols-8 gap-1.5">
+                      {Array.from({ length: totalChaptersOfSelected }, (_, i) => i + 1).map((chapterNum) => {
+                        const isMyChapterRead = myReadInSelectedBook.includes(chapterNum);
+                        
+                        const readersOfThisChapter = activeChecklists.filter(chk => {
+                          const chapArr = chk.chapters?.[selectedBook] || [];
+                          return chapArr.includes(chapterNum);
+                        });
+
+                        return (
+                          <button
+                            key={chapterNum}
+                            type="button"
+                            onClick={() => handleToggleChapter(selectedBook, chapterNum)}
+                            className={`relative rounded-xl flex flex-col items-center justify-center p-1.5 w-full aspect-square border sticker-btn ${
+                              isMyChapterRead 
+                                ? 'bg-[#E88B88] text-white border-[#E88B88] shadow-sm shadow-rose-200/50 font-bold font-title' 
+                                : 'bg-white text-slate-500 border-slate-200/60 hover:border-rose-300 font-semibold'
+                            }`}
+                          >
+                            <span className="text-[11px] font-mono leading-none">{chapterNum}</span>
+
+                            {readersOfThisChapter.length > 0 && (
+                              <div className="absolute bottom-1 flex gap-0.5 justify-center max-w-full">
+                                {readersOfThisChapter.slice(0, 3).map((chkUser) => {
+                                  const isMeInCheck = user && chkUser.userId === user.uid;
+                                  const avatarColor = AVATAR_COLORS[chkUser.avatarColorIdx || 0];
+
+                                  return (
+                                    <span
+                                      key={chkUser.id}
+                                      title={chkUser.userName}
+                                      className={`w-1 h-1 rounded-full shrink-0 block ${
+                                        isMeInCheck ? 'bg-white border-[0.5px] border-[#D35D50]' : avatarColor.class
+                                      }`}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 최근 읽기 활동 스트림 */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-bold text-rose-400 tracking-widest flex items-center gap-1.5 font-title">
+                    <Icon name="Flame" className="text-rose-400 animate-bounce" /> RECENT STREAM
+                  </h4>
+
+                  {sortedLogs.length === 0 ? (
+                    <div className="bg-white rounded-2xl p-8 text-center border border-rose-50 text-slate-400">
+                      <p className="text-xs font-semibold">아직 아무 발자국도 찍히지 않았어요!</p>
+                      <p className="text-[10px] mt-0.5">첫 스티커를 부착해서 선두 주자가 되어보세요!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {sortedLogs.slice(0, 6).map((log) => {
+                        const dateFormatted = new Date(log.timestamp).toLocaleDateString('ko-KR', {
+                          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                        });
+
+                        return (
+                          <div key={log.id} className="bg-white rounded-2xl p-3 border border-rose-50/50 shadow-sm flex items-center justify-between gap-3 text-xs">
+                            <div className="flex items-center gap-2.5">
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold border shrink-0 ${AVATAR_COLORS[log.avatarColorIdx || 0].class}`}>
+                                {log.userName ? log.userName[0] : '무'}
+                              </div>
+                              <div className="font-medium text-slate-700">
+                                <span className="font-bold text-slate-950">{log.userName}</span>
+                                <span className="text-slate-500">님이 </span>
+                                <span className="text-[#D35D50] font-bold bg-[#FFF0EF] px-1.5 py-0.5 rounded-lg border border-[#FFCCD4]/50 font-title">{log.book} {log.chapter}장</span>
+                                <span className="text-slate-500"> 완료 도트를 채웠습니다!</span>
+                              </div>
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-mono shrink-0">{dateFormatted}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            )}
+
+            {/* --- TAB 2: 은혜 나눔 피드 --- */}
+            {activeTab === 'shares' && (
+              <div className="space-y-5">
+                
+                {/* 묵상 일지 폼 */}
+                <form onSubmit={handlePostShare} className="bg-white rounded-3xl p-5 border border-rose-50 shadow-sm space-y-4">
+                  <div className="flex items-center gap-1.5 pb-2 border-b border-rose-50">
+                    <Icon name="MessageCircleHeart" className="text-[#E88B88]" />
+                    <h3 className="text-xs font-bold text-slate-800 font-title">은혜의 말씀 일지 남기기</h3>
+                  </div>
+
+                  <div>
+                    <textarea
+                      rows="3"
+                      value={newShareContent}
+                      onChange={(e) => setNewShareContent(e.target.value)}
+                      placeholder="오늘 성경 격자를 톡 터치하며 머릿속에 기억에 남은 생각이나 묵상을 적어 공유해 보세요..."
+                      className="w-full bg-[#FFFDFB] border border-rose-100 rounded-2xl p-3.5 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#E88B88] leading-relaxed font-medium"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={newShareRef}
+                        onChange={(e) => setNewShareRef(e.target.value)}
+                        placeholder="인용 말씀 (예: 시편 23:1)"
+                        className="w-full bg-[#FFFDFB] border border-rose-100 rounded-2xl px-3.5 py-2.5 text-xs font-semibold text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#E88B88]"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="bg-[#E88B88] hover:bg-[#D47976] text-white text-xs font-bold py-2.5 px-5 rounded-2xl flex items-center gap-1.5 transition shrink-0 shadow-sm shadow-rose-100 font-title"
+                    >
+                      <Icon name="Send" className="w-3 h-3" />
+                      발행
+                    </button>
+                  </div>
+                </form>
+
+                {/* 실시간 묵상 피드 */}
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-bold text-rose-400 tracking-widest uppercase font-title">FEED TIMELINE ({sortedShares.length})</h4>
+
+                  {sortedShares.length === 0 ? (
+                    <div className="bg-white rounded-3xl p-10 text-center border border-rose-50 text-slate-400">
+                      <p className="text-xs font-medium">나누어진 묵상이 아직 없습니다</p>
+                      <p className="text-[10px] mt-0.5">가장 와닿았던 한 구절을 적어 방을 가득 채워보세요.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3.5">
+                      {sortedShares.map((share) => {
+                        const isLikedByMe = user && share.likes && share.likes.includes(user.uid);
+                        const formattedDate = new Date(share.timestamp).toLocaleDateString('ko-KR', {
+                          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                        });
+                        const isMyShare = user && share.userId === user.uid;
+
+                        return (
+                          <div key={share.id} className="bg-white rounded-3xl p-5 border border-rose-50/50 shadow-sm space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2.5">
+                                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border shrink-0 ${AVATAR_COLORS[share.avatarColorIdx || 0].class}`}>
+                                  {share.userName ? share.userName[0] : '무'}
+                                </div>
+                                <div>
+                                  <p className="text-xs font-bold text-slate-800">{share.userName}</p>
+                                  <p className="text-[9px] text-slate-400 font-mono">{formattedDate}</p>
+                                </div>
+                              </div>
+
+                              {isMyShare && (
+                                <button
+                                  onClick={() => handleDeleteShare(share.id)}
+                                  className="text-slate-300 hover:text-rose-500 p-1 rounded-xl transition hover:bg-rose-50"
+                                >
+                                  <Icon name="Trash2" className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="space-y-2">
+                              <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap font-medium">
+                                {share.content}
+                              </p>
+                              {share.reference && (
+                                <span className="inline-flex items-center gap-1 text-[9px] bg-[#FFF0EF] text-[#D35D50] font-bold px-2.5 py-1 rounded-lg border border-[#FFCCD4]/30 font-mono font-title">
+                                  🔖 {share.reference}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="pt-3 border-t border-rose-50/50 flex items-center justify-between text-[11px] font-medium">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleLike(share.id, share.likes)}
+                                className={`flex items-center gap-1.5 transition ${
+                                  isLikedByMe ? 'text-rose-500 font-bold' : 'text-slate-400 hover:text-rose-400'
+                                }`}
+                              >
+                                <Icon name="Heart" className="w-3 h-3" fill={isLikedByMe ? 'currentColor' : 'none'} />
+                                <span>공감 {share.likes ? share.likes.length : 0}</span>
+                              </button>
+                              <span className="text-[9px] text-rose-300 font-bold">기도하며 응원합니다</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            )}
+
+            {/* --- TAB 3: 동역자들 현황 --- */}
+            {activeTab === 'friends' && (
+              <div className="space-y-4">
+                
+                <div className="bg-[#FFF8F7] rounded-3xl p-5 border border-rose-100/40 flex flex-col gap-4">
+                  <div className="flex items-start gap-2.5">
+                    <Icon name="Users" className="text-[#E88B88] mt-0.5 w-4 h-4" />
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-bold text-[#D35D50] font-title">말씀 동행방에 동참하기</h4>
+                      <p className="text-[10px] text-[#D35D50] leading-relaxed font-medium">
+                        아래 생성된 예쁜 말씀방 링크를 친구에게 공유하면, 같은 바둑판 체크현황과 묵상을 실시간으로 나누며 동독을 이어갈 수 있습니다.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 주소 복사 위젯 */}
+                  <div className="bg-white p-2.5 rounded-2xl border border-rose-100/40 flex items-center justify-between gap-2.5">
+                    <span className="text-[10px] text-slate-400 truncate select-all font-mono">
+                      {`${window.location.origin}${window.location.pathname}#group-${groupId}`}
+                    </span>
+                    <button
+                      onClick={handleCopyInviteLink}
+                      className="bg-[#E88B88] text-white text-[10px] font-bold px-3 py-1.5 rounded-xl shrink-0 hover:bg-[#D47976] transition shadow-sm font-title"
+                    >
+                      초대 주소 복사
+                    </button>
+                  </div>
+                </div>
+
+                {/* 동역자 리스트 */}
+                <div className="space-y-2.5">
+                  {friendsProgress.map((friend, idx) => {
+                    const isMe = user && friend.userId === user.uid;
+
+                    return (
+                      <div key={friend.id} className="bg-white rounded-3xl p-4 border border-rose-50/50 shadow-sm flex items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-slate-300 w-3 text-center font-bold">{idx + 1}</span>
+                          
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border shrink-0 ${AVATAR_COLORS[friend.avatarColorIdx || 0].class}`}>
+                            {friend.nickname ? friend.nickname[0] : '동'}
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-slate-800">{friend.nickname}</span>
+                              {isMe && <span className="text-[9px] bg-[#FFF0EF] text-[#D35D50] px-2 py-0.2 rounded-full font-bold border border-[#FFCCD4]/40 font-title">나</span>}
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
+                              {friend.lastLog 
+                                ? `마지막 체크: ${friend.lastLog.book} ${friend.lastLog.chapter}장` 
+                                : '여정 출발을 준비하고 있습니다.'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="font-bold text-[#D35D50] text-sm font-title">{friend.totalChapters}장</span>
+                          <span className="text-[9px] text-slate-400 block font-medium">완독율 {Math.min(Math.round((friend.totalChapters / 1189) * 100), 100)}%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+              </div>
+            )}
+
+          </main>
+
+          {/* --- Bottom Floating Nav Bar --- */}
+          <footer className="absolute bottom-4 left-4 right-4 bg-white/90 backdrop-blur-md rounded-2xl border border-rose-100/40 p-3 shadow-lg flex items-center justify-between text-xs font-bold text-slate-500 z-10">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-60"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-400"></span>
+              </span>
+              <span className="text-[10px] text-slate-600 font-semibold truncate max-w-[180px] font-title">공유 말씀방: {groupName}</span>
+            </div>
+            <button
+              onClick={handleCopyInviteLink}
+              className="text-[10px] text-[#D35D50] hover:underline flex items-center gap-0.5 transition font-title"
+            >
+              초대 복사 <Icon name="ChevronRight" className="w-3 h-3" />
+            </button>
+          </footer>
+
+          {/* --- 프로필 설정 모달 --- */}
+          {showProfileModal && (
+            <div className="fixed inset-0 bg-rose-900/10 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-3xl p-6 w-full max-w-sm border border-rose-100 shadow-2xl space-y-5">
+                <div className="text-center space-y-1.5">
+                  <span className="text-2xl">🌱</span>
+                  <h2 className="text-base font-bold text-slate-900 font-title">말씀 동행의 시작</h2>
+                  <p className="text-[11px] text-slate-400 leading-normal px-2 font-medium">
+                    친구들과 실시간으로 함께 읽고 은혜를 기록하는 말씀 동행방에 보일 이름과 아바타 테마를 꾸며 보세요!
+                  </p>
+                </div>
+
+                {/* 닉네임 입력 */}
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold text-slate-400 font-title">이름이나 별명</label>
+                  <input
+                    type="text"
+                    value={nicknameInput}
+                    onChange={(e) => setNicknameInput(e.target.value)}
+                    placeholder="예: 예쁜하늘, 믿음이, 바울"
+                    className="w-full bg-[#FFFDFB] border border-rose-100 rounded-2xl px-3.5 py-3 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#E88B88]"
+                    maxLength={10}
+                  />
+                </div>
+
+                {/* 아바타 컬러 테마 */}
+                <div className="space-y-2.5">
+                  <label className="block text-[11px] font-bold text-slate-400 font-title">나의 아바타 젤리 컬러</label>
+                  <div className="grid grid-cols-5 gap-2.5">
+                    {AVATAR_COLORS.map((color, index) => (
+                      <button
+                        key={color.name}
+                        type="button"
+                        onClick={() => setSelectedColorIdx(index)}
+                        className={`h-9 rounded-2xl flex items-center justify-center text-xs font-bold border transition-all ${
+                          color.class
+                        } ${
+                          selectedColorIdx === index 
+                            ? 'ring-2 ring-[#E88B88] ring-offset-2 scale-105 shadow-sm' 
+                            : 'opacity-75 hover:opacity-100'
+                        }`}
+                      >
+                        {nicknameInput ? nicknameInput[0] || '동' : '동'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 제어 버튼 */}
+                <div className="flex gap-2 pt-1.5">
+                  {currentUserProfile && (
+                    <button
+                      type="button"
+                      onClick={() => setShowProfileModal(false)}
+                      className="flex-1 bg-slate-50 hover:bg-slate-100 border border-slate-200/50 text-slate-400 text-xs font-semibold py-3 rounded-2xl transition font-title"
+                    >
+                      닫기
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSaveProfile}
+                    className="flex-1 bg-[#E88B88] hover:bg-[#D47976] text-white text-xs font-bold py-3 rounded-2xl transition shadow-sm shadow-rose-100 font-title"
+                  >
+                    여정 출발하기 🚀
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* --- Premium Toast Notification --- */}
+          {showToast && (
+            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-[#E88B88] text-white text-[11px] font-semibold py-2.5 px-5 rounded-xl shadow-lg z-50 text-center max-w-xs animate-bounce border border-rose-300 font-title">
+              🌸 {showToast}
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    // React DOM Rendering to HTML
+    const rootElement = document.getElementById('root');
+    const root = ReactDOM.createRoot(rootElement);
+    root.render(<App />);
+  </script>
+</body>
+</html>
