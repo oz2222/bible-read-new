@@ -229,7 +229,7 @@
         ),
         Heart: (
           <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2a5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
           </svg>
         ),
         Share2: (
@@ -279,7 +279,7 @@
         ),
         Sparkles: (
           <svg xmlns="http://www.w3.org/2000/svg" fill={fill} viewBox="0 0 24 24" stroke="currentColor" className={className} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z" />
+            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1-1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z" />
           </svg>
         ),
         Edit2: (
@@ -338,7 +338,9 @@
 
       const triggerToast = (msg) => {
         setShowToast(msg);
-        setTimeout(() => setShowToast(null), 3000);
+        setTimeout(() => {
+          setShowToast(null);
+        }, 3000);
       };
 
       // URL Hash 기반 공유방 ID 동기화
@@ -548,38 +550,68 @@
       }, [user, groupId, offlineMode]);
 
       // 커스텀 파이어베이스 수동 설정 완료 시 작동 기전
+      // [초강력 업그레이드] 기종과 특수 공백, 예쁜 따옴표를 모두 가공해 필요한 JSON 필드만 쏙쏙 찾아내는 정밀 정규식 파서 탑재
       const handleSaveCustomConfig = () => {
         try {
           const trimmed = configInput.trim();
           if (!trimmed) {
             localStorage.removeItem('biblemate_custom_firebase_config');
             triggerToast("설정이 비워졌습니다. 이제 로컬 연습 모드로 새로고침됩니다.");
-          } else {
-            // 중괄호 안의 코드 내용을 유연하게 꺼내는 하이브리드 파서 적용
-            const startIdx = trimmed.indexOf('{');
-            const endIdx = trimmed.lastIndexOf('}');
-            if (startIdx === -1 || endIdx === -1) {
-              triggerToast("설정값에서 { } 중괄호를 찾을 수 없습니다. 올바른 설정 코드를 통째로 넣어주세요.");
-              return;
-            }
-
-            const objectString = trimmed.substring(startIdx, endIdx + 1);
-            // 자바스크립트 객체 형식의 문자열을 안전하게 객체로 변환합니다.
-            const parsed = Function("return " + objectString)();
-
-            if (!parsed || !parsed.apiKey || !parsed.projectId) {
-              triggerToast("파이어베이스 설정 형식이 틀렸습니다. apiKey와 projectId가 담겨있어야 합니다.");
-              return;
-            }
-            localStorage.setItem('biblemate_custom_firebase_config', JSON.stringify(parsed));
-            triggerToast("파이어베이스 클라우드가 연결되었습니다! 1초 뒤 자동 새로고침됩니다. ✨");
+            setShowConfigModal(false);
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+            return;
           }
+
+          // 1단계: 모바일/메신저 복사 시 생기는 숨겨진 특수 공백들(\u00a0, NBSP 등)을 표준 공백으로 정화
+          // 2단계: 스마트 장치에서 교묘하게 꼬여 들어오는 예쁜 큰따옴표/작은따옴표(“ ”, ‘ ’)를 표준 따옴표로 통일
+          const cleanInput = trimmed
+            .replace(/[\u00a0\u1680\u180e\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/g, ' ')
+            .replace(/[“]/g, '"')
+            .replace(/[”]/g, '"')
+            .replace(/[‘]/g, "'")
+            .replace(/[’]/g, "'");
+
+          // 3단계: 정교한 정규식을 사용하여 JS 오브젝트 문법이든 JSON 문법이든 필드값을 확실하게 채굴
+          const extractField = (str, key) => {
+            const regex = new RegExp(`['"]?${key}['"]?\\s*:\\s*['"]([^'"]+)['"]`);
+            const match = str.match(regex);
+            return match ? match[1].trim() : null;
+          };
+
+          const apiKeyVal = extractField(cleanInput, 'apiKey');
+          const authDomainVal = extractField(cleanInput, 'authDomain');
+          const projectIdVal = extractField(cleanInput, 'projectId');
+          const storageBucketVal = extractField(cleanInput, 'storageBucket');
+          const messagingSenderIdVal = extractField(cleanInput, 'messagingSenderId');
+          const appIdVal = extractField(cleanInput, 'appId');
+
+          // 핵심 정보 자가 진단
+          if (!apiKeyVal || !projectIdVal) {
+            triggerToast("설정 코드에서 apiKey 또는 projectId를 찾지 못했습니다. 전체 복사 후 다시 붙여넣어 주세요!");
+            return;
+          }
+
+          // 완벽한 구조의 JSON으로 최종 수렴 및 직렬화
+          const parsedConfig = {
+            apiKey: apiKeyVal,
+            authDomain: authDomainVal || `${projectIdVal}.firebaseapp.com`,
+            projectId: projectIdVal,
+            storageBucket: storageBucketVal || `${projectIdVal}.firebasestorage.app`,
+            messagingSenderId: messagingSenderIdVal || '',
+            appId: appIdVal || ''
+          };
+
+          localStorage.setItem('biblemate_custom_firebase_config', JSON.stringify(parsedConfig));
+          triggerToast("파이어베이스 클라우드가 연결되었습니다! 1초 뒤 자동 새로고침됩니다. ✨");
           setShowConfigModal(false);
           setTimeout(() => {
             window.location.reload();
           }, 1000);
         } catch (e) {
-          triggerToast("코드 해석에 실패했습니다. 중괄호 { }를 포함한 온전한 설정을 그대로 복사해 주세요.");
+          console.error("Config Parsing Error:", e);
+          triggerToast("설정 정보를 해석하는 중에 에러가 발생했습니다. 파이어베이스 콘솔 화면의 코드를 그대로 전체 복사해 주세요.");
         }
       };
 
@@ -1665,7 +1697,7 @@
                                 {share.content}
                               </p>
                               {share.reference && (
-                                <span className="inline-flex items-center gap-1 text-[9px] bg-[#FFF0EF] text-[#D35D50] font-bold px-2.5 py-1 rounded-lg border border-[#FFCCD4]/30 font-mono">
+                                <span className="inline-flex items-center gap-1 text-[9px] bg-[#FFF0EF] text-[#D35D50] font-bold px-2.5 py-1 rounded-lg border border-[#FFCCD4]/30 font-mono font-title">
                                   🔖 {share.reference}
                                 </span>
                               )}
@@ -1771,7 +1803,7 @@
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-60"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-400"></span>
               </span>
-              <span className="text-[10px] text-slate-600 font-semibold truncate max-w-[180px]">공유 말씀방: {groupName}</span>
+              <span className="text-[10px] text-slate-600 font-semibold truncate max-w-[180px] font-title">공유 말씀방: {groupName}</span>
             </div>
             <button
               onClick={handleCopyInviteLink}
@@ -1978,7 +2010,7 @@
 
           {/* --- Premium Toast Notification --- */}
           {showToast && (
-            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-[#E88B88] text-white text-[11px] font-semibold py-2.5 px-5 rounded-xl shadow-lg z-50 text-center max-w-xs animate-bounce border border-rose-300 font-title">
+            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-[#E88B88] text-white text-[11px] font-semibold py-2.5 px-5 rounded-xl shadow-lg z-50 text-center max-w-xs animate-bounce border border-rose-300 font-title font-title">
               🌸 {showToast}
             </div>
           )}
