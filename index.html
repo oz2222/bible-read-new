@@ -30,6 +30,8 @@
     /* 트렌디하고 세련된 폰트 세팅 */
     body {
       font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
       letter-spacing: -0.03em;
     }
     
@@ -305,6 +307,7 @@
 
       // Firebase 인증 오류 방지용 로컬 폴백 트리거
       const [offlineMode, setOfflineMode] = useState(isLocalMode);
+      const [authErrorReason, setAuthErrorReason] = useState(''); // 특정 연동 실패 원인 파싱용
 
       // 실시간 클라우드 / 로컬 통합 데이터
       const [allUsers, setAllUsers] = useState([]);
@@ -332,7 +335,7 @@
         return localStorage.getItem('biblemate_custom_firebase_config') || '';
       });
 
-      // 카톡 수동 코드 동기화용 모달/입력
+      // 카톡 수동 코드 공유용 모달/입력
       const [showCodeShareModal, setShowCodeShareModal] = useState(false);
       const [friendCodeInput, setFriendCodeInput] = useState('');
 
@@ -376,6 +379,12 @@
           } catch (error) {
             console.error("Auth Error:", error);
             setOfflineMode(true);
+            // 구글 콘솔에서 익명 로그인을 안 켰을 때 발생하는 특수 코드 감지
+            if (error.code === 'auth/operation-not-allowed' || error.message.includes('operation-not-allowed')) {
+              setAuthErrorReason('anonymous-disabled');
+            } else {
+              setAuthErrorReason(error.message || 'connection-failed');
+            }
             triggerToast("임시 로컬 모드로 안전 가동합니다.");
           } finally {
             setIsAuthLoading(false);
@@ -742,7 +751,7 @@
           }, { merge: true });
 
           setShowProfileModal(false);
-          triggerToast(`환영합니다, ${trimmed}님! 함께 걸어보아요 ✨`);
+          triggerToast("환영합니다! 실시간 클라우드방 프로필 등록 완료 ✨");
         } catch (err) {
           console.error(err);
         }
@@ -1288,6 +1297,28 @@
             </button>
           </div>
 
+          {/* ⚠️ 익명 로그인 꺼져있을 때의 친절 가이드 배너 카드 */}
+          {offlineMode && authErrorReason === 'anonymous-disabled' && (
+            <div className="bg-amber-50 border-b border-amber-200 p-4.5 text-xs text-amber-900 animate-fadeIn space-y-2.5 shrink-0">
+              <div className="flex items-start gap-2">
+                <span className="text-base">💡</span>
+                <div className="space-y-1">
+                  <p className="font-extrabold text-amber-950 font-title">서버 연결 성공을 위한 마지막 1단계!</p>
+                  <p className="text-[11px] leading-relaxed text-amber-800">
+                    현재 구글 파이어베이스 설정은 성공했지만, 프로젝트의 <strong>'익명 로그인'</strong> 기능이 꺼져있어 로컬 모드로 작동하고 있습니다. 아래 순서대로 켜주시면 즉시 진짜 실시간 공유방이 개설됩니다!
+                  </p>
+                </div>
+              </div>
+              <div className="bg-white/80 p-3 rounded-2xl border border-amber-200/40 text-[11px] space-y-1 text-amber-900 font-medium font-sans">
+                <p>1. <a href="https://console.firebase.google.com" target="_blank" className="underline font-bold text-amber-950">구글 파이어베이스 콘솔(클릭)</a>에 접속해 프로젝트를 누릅니다.</p>
+                <p>2. 왼쪽 메뉴에서 <strong>[Build(빌드)] ➔ [Authentication]</strong>을 클릭합니다.</p>
+                <p>3. <strong>[Sign-in method(로그인 제공업체)]</strong> 탭을 누릅니다.</p>
+                <p>4. 아래쪽 <strong>[익명 (Anonymous)]</strong>을 찾아 연필 아이콘을 누르고 <strong>[사용 설정 스위치]</strong>를 켠 뒤 <strong>[저장]</strong>을 누르세요!</p>
+              </div>
+              <p className="text-[10px] text-amber-600 font-bold text-center">※ 위 가이드를 완료하신 뒤 앱을 새로고침(또는 더블클릭 실행) 하시면 완료됩니다!</p>
+            </div>
+          )}
+
           {/* --- Top App Header --- */}
           <header className="bg-white/95 backdrop-blur-md border-b border-rose-100/60 px-6 py-4 sticky top-0 z-20 space-y-3 shadow-sm shrink-0">
             <div className="flex items-center justify-between">
@@ -1460,7 +1491,7 @@
                   <div className="flex items-center justify-between gap-3 pb-3 border-b border-rose-50">
                     <div className="flex items-center gap-1.5">
                       <Icon name="BookOpen" className="text-[#E88B88] w-4 h-4" />
-                      <span className="text-xs font-bold text-slate-800">성경 탐색</span>
+                      <span className="text-xs font-bold text-slate-800 font-title">성경 탐색</span>
                     </div>
                     
                     <div className="relative">
@@ -1570,7 +1601,7 @@
 
                 {/* 최근 읽기 활동 스트림 */}
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-bold text-rose-400 tracking-widest flex items-center gap-1.5">
+                  <h4 className="text-[10px] font-bold text-rose-400 tracking-widest flex items-center gap-1.5 font-title">
                     <Icon name="Flame" className="text-rose-400 animate-bounce" /> RECENT STREAM
                   </h4>
 
@@ -1675,7 +1706,7 @@
                               <div className="flex items-center gap-2.5">
                                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border shrink-0 ${AVATAR_COLORS[share.avatarColorIdx || 0].class}`}>
                                   {share.userName ? share.userName[0] : '무'}
-                                </div>
+                                }</div>
                                 <div>
                                   <p className="text-xs font-bold text-slate-800">{share.userName}</p>
                                   <p className="text-[9px] text-slate-400 font-mono">{formattedDate}</p>
@@ -1697,7 +1728,7 @@
                                 {share.content}
                               </p>
                               {share.reference && (
-                                <span className="inline-flex items-center gap-1 text-[9px] bg-[#FFF0EF] text-[#D35D50] font-bold px-2.5 py-1 rounded-lg border border-[#FFCCD4]/30 font-mono font-title">
+                                <span className="inline-flex items-center gap-1 text-[9px] bg-[#FFF0EF] text-[#D35D50] font-bold px-2.5 py-1 rounded-lg border border-[#FFCCD4]/30 font-mono">
                                   🔖 {share.reference}
                                 </span>
                               )}
@@ -1803,7 +1834,7 @@
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-60"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-400"></span>
               </span>
-              <span className="text-[10px] text-slate-600 font-semibold truncate max-w-[180px] font-title">공유 말씀방: {groupName}</span>
+              <span className="text-[10px] text-slate-600 font-semibold truncate max-w-[180px]">공유 말씀방: {groupName}</span>
             </div>
             <button
               onClick={handleCopyInviteLink}
@@ -2022,7 +2053,7 @@
     // React DOM Rendering to HTML
     const rootElement = document.getElementById('root');
     const root = ReactDOM.createRoot(rootElement);
-    root.render(<App />);
+    root.render(<App />); // 수정: React 18에 맞는 올바른 JSX 엘리먼트 형식으로 변경
   </script>
 </body>
 </html>
