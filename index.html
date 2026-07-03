@@ -73,9 +73,9 @@
     <div style="font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #FFFDFB; color: #D35D50; text-align: center; padding: 20px;">
       <div style="font-size: 40px; margin-bottom: 20px; animation: pulse 1.5s infinite; filter: drop-shadow(0 4px 6px rgba(232,139,136,0.3));">🌸</div>
       <h2 style="font-size: 18px; font-weight: bold; margin-bottom: 8px; color: #333333; font-family: 'Gmarket Sans', sans-serif;">말씀 동행방을 열고 있습니다</h2>
-      <p style="font-size: 11px; color: #D35D50; font-weight: 600; margin-bottom: 12px; letter-spacing: 0.05em;">BIBLEMATE CLOUD ONLINE LOADING...</p>
+      <p style="font-size: 11px; color: #D35D50; font-weight: 600; margin-bottom: 12px; letter-spacing: 0.05em;">BIBLEMATE SYSTEM LOADING...</p>
       <p style="font-size: 11px; color: #888888; max-width: 280px; line-height: 1.6;">
-        최초 로딩 시 보안 검증 및 실시간 클라우드에 연결하는 데 몇 초 정도 걸릴 수 있습니다. 잠시만 기다려 주세요!
+        최초 로딩 시 보안 검증 및 실시간 클라우드 연결 상태를 체크하는 데 몇 초 정도 걸릴 수 있습니다. 잠시만 기다려 주세요!
       </p>
     </div>
   </div>
@@ -83,46 +83,49 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    // --- 즉시 동작하는 공용 샌드박스 Firebase 설정 정보 ---
-    // 빈값을 넣어 두는 대신 즉시 실시간 공유가 되도록 활성화된 공용 백엔드 주소를 기본 탑재했습니다.
-    let firebaseConfig = {
-      apiKey: "AIzaSyAs7O1K" + "MvW8A" + "o0X9z" + "B8U_qYgV2" + "yC36rU0k", // 난독화 결합 처리
-      authDomain: "bible-mate-shared.firebaseapp.com",
-      projectId: "bible-mate-shared",
-      storageBucket: "bible-mate-shared.appspot.com",
-      messagingSenderId: "558293010482",
-      appId: "1:558293010482:web:6b907c13e614041bda207e"
-    };
+    // --- 지능형 하이브리드 Firebase 설정 확인 기전 ---
+    let firebaseConfig = null;
+    let isLocalMode = true;
 
-    // 플랫폼 주입 Firebase 세팅 안전 파싱 (가상 환경용 이중 가드)
-    if (typeof __firebase_config !== 'undefined') {
-      if (typeof __firebase_config === 'string') {
-        try {
-          const parsed = JSON.parse(__firebase_config);
-          if (parsed.apiKey) firebaseConfig = parsed;
-        } catch (e) {
-          console.error("Firebase config parsing error:", e);
+    // 1. 우선 플랫폼 내부 프리뷰에서 구동 중일 때 제공되는 실시간 연동 서버 자동 맵핑 (웹 뷰용)
+    if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+      try {
+        firebaseConfig = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
+        if (firebaseConfig && firebaseConfig.apiKey) {
+          isLocalMode = false;
         }
-      } else if (typeof __firebase_config === 'object') {
-        if (__firebase_config.apiKey) firebaseConfig = __firebase_config;
+      } catch (e) {
+        console.error("Platform Firebase init failed:", e);
       }
     }
 
-    // --- 지능형 로컬/서버 모드 판별 기전 ---
+    // 2. 만약 플랫폼 주입이 없고(다운로드 파일인 경우), 사용자가 커스텀하게 입력한 설정이 있다면 그것을 사용
+    if (isLocalMode) {
+      const savedCustomConfig = localStorage.getItem('biblemate_custom_firebase_config');
+      if (savedCustomConfig) {
+        try {
+          firebaseConfig = JSON.parse(savedCustomConfig);
+          if (firebaseConfig && firebaseConfig.apiKey) {
+            isLocalMode = false;
+          }
+        } catch (e) {
+          console.error("Custom Firebase parsing failed:", e);
+        }
+      }
+    }
+
     const firebaseAvailable = typeof firebase !== 'undefined';
-    // 만약 파이어베이스 정보 로딩에 아예 실패하거나 공용키가 없는 경우만 로컬 모드로 우회합니다.
-    const isLocalMode = !firebaseAvailable || !firebaseConfig.apiKey || firebaseConfig.apiKey.trim() === "";
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'bible-mate-shared-v3';
 
     let app, auth, db;
-    if (!isLocalMode) {
+    if (!isLocalMode && firebaseAvailable) {
       try {
         app = firebase.apps.length === 0 ? firebase.initializeApp(firebaseConfig) : firebase.app();
         auth = firebase.auth();
         db = firebase.firestore();
       } catch (e) {
-        console.error("Firebase init failed, switching to local mode", e);
-        window.isLocalModeOverride = true;
+        console.error("Firebase connection failed. Force-switching to Local mode.", e);
+        isLocalMode = true;
       }
     }
 
@@ -334,6 +337,12 @@
       const [newShareContent, setNewShareContent] = useState('');
       const [newShareRef, setNewShareRef] = useState('');
 
+      // 커스텀 파이어베이스 수동 설정 모달용
+      const [showConfigModal, setShowConfigModal] = useState(false);
+      const [configInput, setConfigInput] = useState(() => {
+        return localStorage.getItem('biblemate_custom_firebase_config') || '';
+      });
+
       const triggerToast = (msg) => {
         setShowToast(msg);
         setTimeout(() => {
@@ -360,7 +369,7 @@
         return () => window.removeEventListener('hashchange', handleHashChange);
       }, []);
 
-      // 인증 리스너 (Rule 3) - 로컬 체험 모드인 경우 우회
+      // 인증 리스너 (Rule 3)
       useEffect(() => {
         if (isLocalMode) {
           setIsAuthLoading(false);
@@ -378,7 +387,7 @@
             }
           } catch (error) {
             console.error("Auth Error:", error);
-            triggerToast("온라인 인증 오류로 로컬 저장소 모드로 안전 가동합니다.");
+            triggerToast("클라우드 인증에 오류가 있어 로컬 모드로 전환합니다.");
           } finally {
             setIsAuthLoading(false);
           }
@@ -395,15 +404,15 @@
         return () => unsubscribe();
       }, []);
 
-      // 실시간 바인딩 (Rule 1 & Rule 2) - UMD 호환 Compat 구문 적용
+      // 실시간 바인딩 (Rule 1 & Rule 2) - 로컬일 때와 파이어베이스일 때 안전 분기
       useEffect(() => {
         if (isLocalMode) {
-          // --- 로컬 오프라인 데이터 수집 및 시뮬레이션 ---
+          // --- 로컬 오프라인 모드 데이터 시뮬레이션 ---
           const loadLocalData = () => {
             const localUsersKey = `biblemate_${appId}_users`;
             let usersList = JSON.parse(localStorage.getItem(localUsersKey)) || [];
             
-            // 로컬 실행 시 화사하게 보일 예쁜 가상 친구들 기본 자동 생성!
+            // 로컬 모드일 때 가상 친구 2명 제공
             if (usersList.length === 0) {
               usersList = [
                 { id: `dummy1_${groupId}`, userId: "dummy1", groupId, nickname: "요한 💡", avatarColorIdx: 1 },
@@ -413,7 +422,6 @@
             }
             setAllUsers(usersList);
 
-            // 로컬 프로필 검수
             const myProfileKey = `localUser_${groupId}`;
             const myProfile = JSON.parse(localStorage.getItem(myProfileKey));
             if (myProfile) {
@@ -430,7 +438,6 @@
               setShowProfileModal(true);
             }
 
-            // 가상 스티커 로그 세팅
             const localLogsKey = `biblemate_${appId}_logs`;
             let logsList = JSON.parse(localStorage.getItem(localLogsKey)) || [];
             if (logsList.length === 0) {
@@ -442,7 +449,6 @@
             }
             setAllLogs(logsList);
 
-            // 가상 묵상 게시판 피드 세팅
             const localSharesKey = `biblemate_${appId}_shares`;
             let sharesList = JSON.parse(localStorage.getItem(localSharesKey)) || [];
             if (sharesList.length === 0) {
@@ -453,7 +459,6 @@
             }
             setAllShares(sharesList);
 
-            // 가상 체크리스트 세팅
             const localChecklistsKey = `biblemate_${appId}_checklists`;
             let checklistsList = JSON.parse(localStorage.getItem(localChecklistsKey)) || [];
             if (checklistsList.length === 0) {
@@ -468,7 +473,6 @@
 
           loadLocalData();
 
-          // 브라우저 탭 간 실시간 데이터 미러링 통신 이벤트 리스너 가동
           const handleStorageChange = (e) => {
             if (e.key && e.key.startsWith("biblemate_")) {
               loadLocalData();
@@ -499,7 +503,7 @@
               setShowProfileModal(true);
             }
           },
-          (err) => console.error("Users 리스너 오류:", err)
+          (err) => console.error(err)
         );
 
         const unsubscribeLogs = db.collection(`artifacts/${appId}/public/data/readingLogs`).onSnapshot(
@@ -510,7 +514,7 @@
             });
             setAllLogs(list);
           },
-          (err) => console.error("Logs 리스너 오류:", err)
+          (err) => console.error(err)
         );
 
         const unsubscribeShares = db.collection(`artifacts/${appId}/public/data/shares`).onSnapshot(
@@ -521,7 +525,7 @@
             });
             setAllShares(list);
           },
-          (err) => console.error("Shares 리스너 오류:", err)
+          (err) => console.error(err)
         );
 
         const unsubscribeChecklists = db.collection(`artifacts/${appId}/public/data/checklists`).onSnapshot(
@@ -532,7 +536,7 @@
             });
             setAllChecklists(list);
           },
-          (err) => console.error("Checklists 리스너 오류:", err)
+          (err) => console.error(err)
         );
 
         const unsubscribeGroupSettings = db.collection(`artifacts/${appId}/public/data/groupSettings`).onSnapshot(
@@ -552,7 +556,7 @@
               setGroupNameInput('우리 말씀 동행방 🌸');
             }
           },
-          (err) => console.error("Settings 리스너 오류:", err)
+          (err) => console.error(err)
         );
 
         return () => {
@@ -563,6 +567,42 @@
           unsubscribeGroupSettings();
         };
       }, [user, groupId]);
+
+      // 커스텀 파이어베이스 수동 설정 완료 시 작동 기전
+      const handleSaveCustomConfig = () => {
+        try {
+          const trimmed = configInput.trim();
+          if (!trimmed) {
+            localStorage.removeItem('biblemate_custom_firebase_config');
+            triggerToast("설정이 비워졌습니다. 이제 로컬 연습 모드로 새로고침됩니다.");
+          } else {
+            const parsed = JSON.parse(trimmed);
+            if (!parsed.apiKey || !parsed.projectId) {
+              triggerToast("파이어베이스 설정 형식이 틀렸습니다. apiKey와 projectId가 담겨있어야 합니다.");
+              return;
+            }
+            localStorage.setItem('biblemate_custom_firebase_config', JSON.stringify(parsed));
+            triggerToast("파이어베이스 클라우드가 연결되었습니다! 1초 뒤 자동 새로고침됩니다.");
+          }
+          setShowConfigModal(false);
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        } catch (e) {
+          triggerToast("JSON 양식이 틀렸습니다. { } 중괄호를 포함한 온전한 소스코드를 넣어주세요.");
+        }
+      };
+
+      // 설정 초기화 핸들러
+      const handleResetCustomConfig = () => {
+        localStorage.removeItem('biblemate_custom_firebase_config');
+        setConfigInput('');
+        triggerToast("연동 설정이 초기화되었습니다. 로컬 모드로 전환하기 위해 새로고침합니다.");
+        setShowConfigModal(false);
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      };
 
       const handleCopyInviteLink = () => {
         const inviteUrl = `${window.location.origin}${window.location.pathname}#group-${groupId}`;
@@ -592,7 +632,7 @@
         if (isLocalMode) {
           setGroupName(trimmed);
           setIsEditingGroupName(false);
-          triggerToast(`말씀방 이름이 예쁘게 변경되었습니다! (로컬저장) 🌟`);
+          triggerToast(`말씀방 이름이 변경되었습니다! (로컬저장) 🌟`);
           return;
         }
 
@@ -1096,20 +1136,28 @@
       return (
         <div className="min-h-screen bg-[#FFFDFB] text-slate-800 font-sans antialiased flex flex-col max-w-lg mx-auto shadow-2xl relative border-x border-rose-100/30">
           
-          {/* 상단 실시간 서버 동기화 인디케이터 바 */}
+          {/* 상단 하이브리드 서버 동기화 인디케이터 바 */}
           <div className={`text-center py-2 px-4 text-[10px] font-bold flex items-center justify-center gap-1.5 animate-fadeIn shrink-0 transition-colors ${
             isLocalMode 
-              ? 'bg-[#FFF5F2] border-b border-rose-100/40 text-[#D35D50]' 
+              ? 'bg-[#FFF3F0] border-b border-rose-100/40 text-[#D35D50]' 
               : 'bg-[#F2FCF6] border-b border-emerald-100/40 text-emerald-700'
           }`}>
             <span className="relative flex h-2 w-2">
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-60 ${isLocalMode ? 'bg-[#D35D50]' : 'bg-emerald-400'}`}></span>
               <span className={`relative inline-flex rounded-full h-2 w-2 ${isLocalMode ? 'bg-[#D35D50]' : 'bg-emerald-500'}`}></span>
             </span>
-            <span className="font-title">
+            <span className="font-title flex items-center gap-1.5">
               {isLocalMode 
-                ? "나홀로 저장 모드로 부팅됨 ⚠️ (가상 친구들과 미리 체험해 보세요!)" 
-                : "실시간 클라우드 동행 가동 중 🟢 (초대한 친구들과 완전 실시간 연동!)"}
+                ? "⚠️ 나홀로 로컬 모드 (다운로드용) | 친구와 함께 읽으려면?" 
+                : "🟢 실시간 클라우드 연동 가동 중 (초대 친구들과 실시간 연동!)"}
+              {isLocalMode && (
+                <button 
+                  onClick={() => setShowConfigModal(true)} 
+                  className="bg-[#D35D50] text-white px-2 py-0.5 rounded hover:bg-[#b04a3e] transition text-[9px] font-bold shrink-0"
+                >
+                  연동 설정 ⚙️
+                </button>
+              )}
             </span>
           </div>
 
@@ -1149,7 +1197,7 @@
                 </div>
               </div>
 
-              <div>
+              <div className="flex items-center gap-2">
                 <button
                   onClick={handleCopyInviteLink}
                   className="flex items-center gap-1.5 bg-[#FFF0EF] text-[#D35D50] hover:bg-[#FFE0DD] border border-[#FFCCD4] py-1.5 px-3.5 rounded-full text-xs font-semibold transition shadow-none font-title"
@@ -1638,13 +1686,72 @@
             </button>
           </footer>
 
+          {/* --- 수동 클라우드(Firebase) 입력 설정 모달 --- */}
+          {showConfigModal && (
+            <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-3xl p-6 w-full max-w-sm border border-rose-100 shadow-2xl space-y-4">
+                <div className="text-center space-y-1">
+                  <span className="text-2xl">⚙️</span>
+                  <h2 className="text-base font-bold text-slate-900 font-title">나만의 평생 클라우드 연동</h2>
+                  <p className="text-[10px] text-slate-400 leading-relaxed px-2 font-medium">
+                    다운로드한 파일로 친구와 평생 무제한 실시간 연동을 하려면 본인의 무료 구글 Firebase 설정값을 입력해 주세요.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-400 font-title">Firebase Config JSON 코드</label>
+                  <textarea
+                    rows="5"
+                    value={configInput}
+                    onChange={(e) => setConfigInput(e.target.value)}
+                    placeholder='{ "apiKey": "...", "projectId": "...", ... }'
+                    className="w-full bg-[#FFFDFB] border border-rose-100 rounded-2xl p-3 text-[11px] font-mono text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-[#E88B88]"
+                  />
+                </div>
+
+                <div className="bg-rose-50/50 p-2.5 rounded-xl border border-rose-100 text-[10px] text-[#D35D50] font-medium leading-relaxed">
+                  <p className="font-bold">💡 1분 초간단 발급 방법:</p>
+                  <ol className="list-decimal pl-4 space-y-0.5 mt-1">
+                    <li>firebase.google.com에 접속해 로그인합니다.</li>
+                    <li>무료 새 프로젝트를 생성하고 웹(Web) 앱을 추가합니다.</li>
+                    <li>화면에 뜬 <code className="bg-white/80 px-1 py-0.2 rounded font-mono">{"const firebaseConfig = { ... }"}</code> 내부 객체(중괄호 전체)를 그대로 복사해 여기에 붙여넣으면 평생 연동 완료!</li>
+                  </ol>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleResetCustomConfig}
+                    className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-500 text-xs font-semibold py-2.5 rounded-2xl transition font-title"
+                  >
+                    연동 초기화
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowConfigModal(false)}
+                    className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-500 text-xs font-semibold py-2.5 rounded-2xl transition font-title"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveCustomConfig}
+                    className="flex-1 bg-[#E88B88] hover:bg-[#D47976] text-white text-xs font-bold py-2.5 rounded-2xl transition shadow-sm font-title"
+                  >
+                    저장 후 적용
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* --- 프로필 설정 모달 --- */}
           {showProfileModal && (
             <div className="fixed inset-0 bg-rose-900/10 backdrop-blur-sm flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-3xl p-6 w-full max-w-sm border border-rose-100 shadow-2xl space-y-5">
                 <div className="text-center space-y-1.5">
                   <span className="text-2xl">🌱</span>
-                  <h2 className="text-base font-bold text-slate-900 font-title">말씀 동행의 시작</h2>
+                  <h2 className="text-base font-bold text-slate-900 font-serif font-title">말씀 동행의 시작</h2>
                   <p className="text-[11px] text-slate-400 leading-normal px-2 font-medium">
                     친구들과 실시간으로 함께 읽고 은혜를 기록하는 말씀 동행방에 보일 이름과 아바타 테마를 꾸며 보세요!
                   </p>
@@ -1711,7 +1818,7 @@
 
           {/* --- Premium Toast Notification --- */}
           {showToast && (
-            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-[#E88B88] text-white text-[11px] font-semibold py-2.5 px-5 rounded-xl shadow-lg z-50 text-center max-w-xs animate-bounce border border-rose-300 font-title font-title">
+            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-[#E88B88] text-white text-[11px] font-semibold py-2.5 px-5 rounded-xl shadow-lg z-50 text-center max-w-xs animate-bounce border border-rose-300 font-title">
               🌸 {showToast}
             </div>
           )}
